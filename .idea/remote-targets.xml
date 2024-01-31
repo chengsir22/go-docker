@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project version="4">
+  <component name="RemoteTargetsManager">
+    <option name="projectDefaultTargetUuid" value="c6decee4-7755-4280-b59c-86b08f1ba3d6" />
+    <targets>
+      <target name="soc@47.92.167.21:22" type="ssh/sftp" uuid="c6decee4-7755-4280-b59c-86b08f1ba3d6">
+        <config>
+          <option name="projectRootOnTarget" value="/root/projects/go-docker" />
+          <option name="serverName" value="root@47.92.167.21:22 key" />
+          <option name="useRsync" value="true" />
+        </config>
+        <ContributedStateBase type="GoLanguageRuntime">
+          <config>
+            <option name="compiledExecutablesVolume">
+              <VolumeState>
+                <option name="remotePath" value="/root/projects/go-docker" />
+              </VolumeState>
+            </option>
+            <option name="goPath" value="/home/soc/go" />
+            <option name="goRoot" value="/usr/local/go/bin/go" />
+            <option name="goVersion" value="go1.21.6 linux/amd64" />
+            <option name="projectSourcesVolume">
+              <VolumeState>
+                <option name="remotePath" value="/root/projects/go-docker" />
+              </VolumeState>
+            </option>
+          </config>
+        </ContributedStateBase>
+      </target>
+    </targets>
+  </component>
+</project>
