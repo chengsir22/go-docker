@@ -1,5 +1,3 @@
-# go-docker
-
 ## 命名空间隔离
 
 目前linux支持的命名空间有:
@@ -117,6 +115,8 @@ func createBridge(networkName string, interfaceIp *net.IPNet) (string, error) {
 ### NAT
 
 `iptables` 命令来设置 SNAT（Source NAT）规则，实现网络地址转换。SNAT 通常用于将源 IP 地址替换为其他地址，以便将出站流量路由到正确的网络。
+
+**POSTROUTIN**: 从本机网卡出去的数据包，无论是本机的程序所发出的，还是由本机转发给其他机器的，都会触发这个钩子，它一般是用于源网络地址转换（Source NAT，SNAT）
 
 ```Go
 func setSNat(bridgeName string, subnet *net.IPNet) error {
@@ -259,6 +259,50 @@ func (b *bridgeDriver) setContainerIp(peerName string, pid int, containerIp net.
     }
 
     return nil
+}
+```
+
+### 端口映射
+
+**PREROUTING**: 在进入 IP 路由之前触发，就意味着只要接收到的数据包，无论是否真的发往本机，也都会触发这个钩子。它一般是用于**目标网络地址转换（Destination NAT，DNAT）**。
+
+```Go
+func setupNetwork(containerPID int, containerIP, containerPort, hostIP, hostPort string) {
+    // 设置网络命名空间
+    nsPath := fmt.Sprintf("/proc/%d/ns/net", containerPID)
+    nsfile, err := os.Open(nsPath)
+    if err != nil {
+       fmt.Println("Error opening network namespace:", err)
+       os.Exit(1)
+    }
+    defer nsfile.Close()
+
+    runtime.LockOSThread()
+
+    // 获取当前的网络 namespace
+    originalNS, err := netns.Get()
+    if err != nil {
+       log.Error("Error getting current netns:", err)
+    }
+
+    // 移动当前进程到容器的网络命名空间
+    if err := netns.Set(netns.NsHandle(nsfile.Fd())); err != nil {
+       fmt.Println("Error setting network namespace:", err)
+       os.Exit(1)
+    }
+
+    // 执行网络配置命令，映射容器端口到宿主机端口
+    iptablesCmd := exec.Command("iptables", "-t", "nat", "-A", "PREROUTING", "-p", "tcp", "--dport", hostPort, "-j", "DNAT", "--to-destination", fmt.Sprintf("%s:%s", containerIP, containerPort))
+    if err := iptablesCmd.Run(); err != nil {
+       fmt.Println("Error configuring iptables:", err)
+       os.Exit(1)
+    }
+
+    // 恢复当前进程到原网络命名空间
+    netns.Set(originalNS)
+    originalNS.Close()
+
+    runtime.UnlockOSThread()
 }
 ```
 

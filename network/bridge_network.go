@@ -289,3 +289,41 @@ func setInterfaceIP(name string, rawIP string) error {
 	addr := &netlink.Addr{IPNet: ipNet, Peer: ipNet, Label: "", Flags: 0, Scope: 0}
 	return netlink.AddrAdd(iface, addr)
 }
+
+func setupNetwork(containerPID int, containerIP, containerPort, hostIP, hostPort string) {
+	// 设置网络命名空间
+	nsPath := fmt.Sprintf("/proc/%d/ns/net", containerPID)
+	nsfile, err := os.Open(nsPath)
+	if err != nil {
+		fmt.Println("Error opening network namespace:", err)
+		os.Exit(1)
+	}
+	defer nsfile.Close()
+
+	runtime.LockOSThread()
+
+	// 获取当前的网络 namespace
+	originalNS, err := netns.Get()
+	if err != nil {
+		log.Error("Error getting current netns:", err)
+	}
+
+	// 移动当前进程到容器的网络命名空间
+	if err := netns.Set(netns.NsHandle(nsfile.Fd())); err != nil {
+		fmt.Println("Error setting network namespace:", err)
+		os.Exit(1)
+	}
+
+	// 执行网络配置命令，映射容器端口到宿主机端口
+	iptablesCmd := exec.Command("iptables", "-t", "nat", "-A", "PREROUTING", "-p", "tcp", "--dport", hostPort, "-j", "DNAT", "--to-destination", fmt.Sprintf("%s:%s", containerIP, containerPort))
+	if err := iptablesCmd.Run(); err != nil {
+		fmt.Println("Error configuring iptables:", err)
+		os.Exit(1)
+	}
+
+	// 恢复当前进程到原网络命名空间
+	netns.Set(originalNS)
+	originalNS.Close()
+
+	runtime.UnlockOSThread()
+}
