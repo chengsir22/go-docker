@@ -6,8 +6,8 @@ import (
 
 // 容器相关目录
 const (
-	ImagePath       = "/var/lib/mydocker/image/"
-	RootPath        = "/var/lib/mydocker/overlay2/"
+	ImagePath       = "/var/lib/go-docker/image/"
+	RootPath        = "/var/lib/go-docker/overlay2/"
 	lowerDirFormat  = ImagePath + "lower/%s"
 	upperDirFormat  = RootPath + "%s/upper"
 	workDirFormat   = RootPath + "%s/work"

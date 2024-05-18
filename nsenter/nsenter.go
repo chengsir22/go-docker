@@ -12,21 +12,21 @@ package nsenter
 
 __attribute__((constructor)) void enter_namespace(void) {
    // 这里的代码会在Go运行时启动前执行，它会在单线程的C上下文中运行
-	char *mydocker_pid;
-	mydocker_pid = getenv("mydocker_pid");
-	if (mydocker_pid) {
-		fprintf(stdout, "got mydocker_pid=%s\n", mydocker_pid);
+	char *go_docker_pid;
+	go_docker_pid = getenv("go_docker_pid");
+	if (go_docker_pid) {
+		fprintf(stdout, "got go_docker_pid=%s\n", go_docker_pid);
 	} else {
-		fprintf(stdout, "missing mydocker_pid env skip nsenter");
+		fprintf(stdout, "missing go_docker_pid env skip nsenter");
 		// 如果没有指定PID就不需要继续执行，直接退出
 		return;
 	}
-	char *mydocker_cmd;
-	mydocker_cmd = getenv("mydocker_cmd");
-	if (mydocker_cmd) {
-		fprintf(stdout, "got mydocker_cmd=%s\n", mydocker_cmd);
+	char *go_docker_cmd;
+	go_docker_cmd = getenv("go_docker_cmd");
+	if (go_docker_cmd) {
+		fprintf(stdout, "got go_docker_cmd=%s\n", go_docker_cmd);
 	} else {
-		fprintf(stdout, "missing mydocker_cmd env skip nsenter");
+		fprintf(stdout, "missing go_docker_cmd env skip nsenter");
 		// 如果没有指定命令也是直接退出
 		return;
 	}
@@ -37,8 +37,12 @@ __attribute__((constructor)) void enter_namespace(void) {
 
 	for (i=0; i<5; i++) {
 		// 拼接对应路径，类似于/proc/pid/ns/ipc这样
-		sprintf(nspath, "/proc/%s/ns/%s", mydocker_pid, namespaces[i]);
+		sprintf(nspath, "/proc/%s/ns/%s", go_docker_pid, namespaces[i]);
 		int fd = open(nspath, O_RDONLY);
+		if (fd == -1) {
+			fprintf(stderr, "Failed to open %s: %s\n", nspath, strerror(errno));
+			return;
+		}
 		// 执行setns系统调用，进入对应namespace
 		if (setns(fd, 0) == -1) {
 			fprintf(stderr, "setns on %s namespace failed: %s\n", namespaces[i], strerror(errno));
@@ -48,9 +52,8 @@ __attribute__((constructor)) void enter_namespace(void) {
 		close(fd);
 	}
 	// 在进入的Namespace中执行指定命令，然后退出
-	int res = system(mydocker_cmd);
-	exit(0);
-	return;
+	int res = system(go_docker_cmd);
+	exit(res);
 }
 */
 import "C"

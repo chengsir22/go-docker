@@ -17,8 +17,8 @@ import (
 
 // nsenter里的C代码里已经出现mydocker_pid和mydocker_cmd这两个Key,主要是为了控制是否执行C代码里面的setns.
 const (
-	EnvExecPid = "mydocker_pid"
-	EnvExecCmd = "mydocker_cmd"
+	EnvExecPid = "go_docker_pid"
+	EnvExecCmd = "go_docker_cmd"
 )
 
 func ExecContainer(containerId string, comArray []string) {

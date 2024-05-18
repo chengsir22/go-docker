@@ -34,7 +34,7 @@ func (s *CpuSubSystem) Set(cgroupPath string, res *resource.ResourceConfig) erro
 	if res.CpuCfsQuota != 0 {
 		// cpu.cfs_quota_us 则根据用户传递的参数来控制，比如参数为20，就是限制为20%CPU，所以把cpu.cfs_quota_us设置为cpu.cfs_period_us的20%就行
 		// 这里只是简单的计算了下，并没有处理一些特殊情况，比如负数什么的
-		if err = os.WriteFile(path.Join(subCgroupPath, "cpu.max"), []byte(fmt.Sprintf("%s %s", strconv.Itoa(PeriodDefault/Percent*res.CpuCfsQuota), PeriodDefault)), constant.Perm0644); err != nil {
+		if err = os.WriteFile(path.Join(subCgroupPath, "cpu.max"), []byte(fmt.Sprintf("%s %s", strconv.Itoa(PeriodDefault/Percent*res.CpuCfsQuota), PeriodDefault)), 0644); err != nil {
 			return fmt.Errorf("set cgroup cpu share fail %v", err)
 		}
 	}

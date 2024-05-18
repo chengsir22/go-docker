@@ -16,7 +16,7 @@ import (
 */
 func getCgroupPath(cgroupPath string, autoCreate bool) (string, error) {
 	// 不需要自动创建就直接返回
-	cgroupRoot := UnifiedMountpoint
+	cgroupRoot := "/sys/fs/cgroup"
 	absPath := path.Join(cgroupRoot, cgroupPath)
 	if !autoCreate {
 		return absPath, nil
@@ -25,7 +25,7 @@ func getCgroupPath(cgroupPath string, autoCreate bool) (string, error) {
 	_, err := os.Stat(absPath)
 	// 只有不存在才创建
 	if err != nil && os.IsNotExist(err) {
-		err = os.Mkdir(absPath, constant.Perm0755)
+		err = os.Mkdir(absPath, 0755)
 		return absPath, err
 	}
 	return absPath, errors.Wrap(err, "create cgroup")
@@ -37,7 +37,7 @@ func applyCgroup(pid int, cgroupPath string) error {
 		return errors.Wrapf(err, "get cgroup %s", cgroupPath)
 	}
 	if err = os.WriteFile(path.Join(subCgroupPath, "cgroup.procs"), []byte(strconv.Itoa(pid)),
-		constant.Perm0644); err != nil {
+		0644); err != nil {
 		return fmt.Errorf("set cgroup proc fail %v", err)
 	}
 	return nil

@@ -25,7 +25,7 @@ func (s *MemorySubSystem) Set(cgroupPath string, res *resource.ResourceConfig) e
 		return err
 	}
 	// 设置这个cgroup的内存限制，即将限制写入到cgroup对应目录的memory.limit_in_bytes 文件中。
-	if err := os.WriteFile(path.Join(subCgroupPath, "memory.max"), []byte(res.MemoryLimit), constant.Perm0644); err != nil {
+	if err := os.WriteFile(path.Join(subCgroupPath, "memory.max"), []byte(res.MemoryLimit), 0644); err != nil {
 		return fmt.Errorf("set cgroup memory fail %v", err)
 	}
 	return nil

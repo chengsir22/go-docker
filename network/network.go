@@ -23,7 +23,7 @@ import (
 )
 
 var (
-	defaultNetworkPath = "/var/lib/mydocker/network/network/"
+	defaultNetworkPath = "/var/lib/go-docker/network/"
 	drivers            = map[string]Driver{}
 )
 
@@ -38,7 +38,7 @@ func init() {
 			logrus.Errorf("check %s is exist failed,detail:%v", defaultNetworkPath, err)
 			return
 		}
-		if err = os.MkdirAll(defaultNetworkPath, constant.Perm0644); err != nil {
+		if err = os.MkdirAll(defaultNetworkPath, 0644); err != nil {
 			logrus.Errorf("create %s failed,detail:%v", defaultNetworkPath, err)
 			return
 		}
@@ -51,14 +51,13 @@ func (net *Network) dump(dumpPath string) error {
 		if !os.IsNotExist(err) {
 			return err
 		}
-		if err = os.MkdirAll(dumpPath, constant.Perm0644); err != nil {
+		if err = os.MkdirAll(dumpPath, 0644); err != nil {
 			return errors.Wrapf(err, "create network dump path %s failed", dumpPath)
 		}
 	}
 	// 保存的文件名是网络的名字
 	netPath := path.Join(dumpPath, net.Name)
-	// 打开保存的文件用于写入,后面打开的模式参数分别是存在内容则清空、只写入、不存在则创建
-	netFile, err := os.OpenFile(netPath, os.O_TRUNC|os.O_WRONLY|os.O_CREATE, constant.Perm0644)
+	netFile, err := os.OpenFile(netPath, os.O_TRUNC|os.O_WRONLY|os.O_CREATE, 0644)
 	if err != nil {
 		return errors.Wrapf(err, "open file %s failed", dumpPath)
 	}
@@ -114,20 +113,17 @@ func loadNetwork() (map[string]*Network, error) {
 		if info.IsDir() {
 			return nil
 		}
-		// if strings.HasSuffix(netPath, "/") {
-		// 	return nil
-		// }
 		//  加载文件名作为网络名
 		_, netName := path.Split(netPath)
-		net := &Network{
+		nw := &Network{
 			Name: netName,
 		}
 		// 调用前面介绍的 Network.load 方法加载网络的配置信息
-		if err = net.load(netPath); err != nil {
+		if err = nw.load(netPath); err != nil {
 			logrus.Errorf("error load network: %s", err)
 		}
 		// 将网络的配置信息加入到 networks 字典中
-		networks[netName] = net
+		networks[netName] = nw
 		return nil
 	})
 	return networks, err
@@ -143,14 +139,13 @@ func CreateNetwork(driver, subnet, name string) error {
 		return err
 	}
 	cidr.IP = ip
-	// 调用指定的网络驱动创建网络，这里的 drivers 字典是各个网络驱动的实例字典 通过调用网络驱动
-	// Create 方法创建网络，后面会以 Bridge 驱动为例介绍它的实现
-	net, err := drivers[driver].Create(cidr.String(), name)
+	// 调用指定的网络驱动创建网络
+	nw, err := drivers[driver].Create(cidr.String(), name)
 	if err != nil {
 		return err
 	}
 	// 保存网络信息，将网络的信息保存在文件系统中，以便查询和在网络上连接网络端点
-	return net.dump(defaultNetworkPath)
+	return nw.dump(defaultNetworkPath)
 }
 
 // ListNetwork 打印出当前全部 Network 信息
@@ -183,23 +178,23 @@ func DeleteNetwork(networkName string) error {
 		return errors.WithMessage(err, "load network from file failed")
 	}
 	// 网络不存在直接返回一个error
-	net, ok := networks[networkName]
+	nw, ok := networks[networkName]
 	if !ok {
 		return fmt.Errorf("no Such Network: %s", networkName)
 	}
 	// 调用IPAM的实例ipAllocator释放网络网关的IP
-	if err = ipAllocator.Release(net.IPRange, &net.IPRange.IP); err != nil {
+	if err = ipAllocator.Release(nw.IPRange, &nw.IPRange.IP); err != nil {
 		return errors.Wrap(err, "remove Network gateway ip failed")
 	}
 	// 调用网络驱动删除网络创建的设备与配置 后面会以 Bridge 驱动删除网络为例子介绍如何实现网络驱动删除网络
-	if err = drivers[net.Driver].Delete(net); err != nil {
+	if err = drivers[nw.Driver].Delete(nw); err != nil {
 		return errors.Wrap(err, "remove Network DriverError failed")
 	}
 	// 最后从网络的配直目录中删除该网络对应的配置文件
-	return net.remove(defaultNetworkPath)
+	return nw.remove(defaultNetworkPath)
 }
 
-// Connect 连接容器到之前创建的网络 mydocker run -net testnet -p 8080:80 xxxx
+// Connect 连接容器到之前创建的网络 go-docker run -net testnet -p 8080:80 xxxx
 func Connect(networkName string, info *container.Info) (net.IP, error) {
 	networks, err := loadNetwork()
 	if err != nil {
@@ -231,7 +226,7 @@ func Connect(networkName string, info *container.Info) (net.IP, error) {
 	if err = configEndpointIpAddressAndRoute(ep, info); err != nil {
 		return ip, err
 	}
-	// 配置端口映射信息，例如 mydocker run -p 8080:80
+	// 配置端口映射信息，例如 go-docker run -p 8080:80
 	return ip, addPortMapping(ep)
 }
 
@@ -262,7 +257,7 @@ func Disconnect(networkName string, info *container.Info) error {
 // enterContainerNetNS 将容器的网络端点加入到容器的网络空间中
 // 并锁定当前程序所执行的线程，使当前线程进入到容器的网络空间
 // 返回值是一个函数指针，执行这个返回函数才会退出容器的网络空间，回归到宿主机的网络空间
-func enterContainerNetNS(enLink *netlink.Link, info *container.Info) func() {
+func enterContainerNetNS(netLink *netlink.Link, info *container.Info) func() {
 	// 找到容器的Net Namespace
 	// /proc/[pid]/ns/net 打开这个文件的文件描述符就可以来操作Net Namespace
 	// 而ContainerInfo中的PID,即容器在宿主机上映射的进程ID
@@ -280,7 +275,8 @@ func enterContainerNetNS(enLink *netlink.Link, info *container.Info) func() {
 	runtime.LockOSThread()
 
 	// 修改网络端点Veth的另外一端，将其移动到容器的Net Namespace 中
-	if err = netlink.LinkSetNsFd(*enLink, int(nsFD)); err != nil {
+	// ip link set $link netns $ns
+	if err = netlink.LinkSetNsFd(*netLink, int(nsFD)); err != nil {
 		logrus.Errorf("error set link netns , %v", err)
 	}
 
@@ -314,13 +310,7 @@ func configEndpointIpAddressAndRoute(ep *Endpoint, info *container.Info) error {
 		return errors.WithMessagef(err, "found veth [%s] failed", ep.Device.PeerName)
 	}
 	// 将容器的网络端点加入到容器的网络空间中
-	// 并使这个函数下面的操作都在这个网络空间中进行
-	// 执行完函数后，恢复为默认的网络空间，具体实现下面再做介绍
-
 	defer enterContainerNetNS(&peerLink, info)()
-	// 获取到容器的IP地址及网段，用于配置容器内部接口地址
-	// 比如容器IP是192.168.1.2， 而网络的网段是192.168.1.0/24
-	// 那么这里产出的IP字符串就是192.168.1.2/24，用于容器内Veth端点配置
 
 	interfaceIP := *ep.Network.IPRange
 	interfaceIP.IP = ep.IPAddress
@@ -332,7 +322,6 @@ func configEndpointIpAddressAndRoute(ep *Endpoint, info *container.Info) error {
 	if err = setInterfaceUP(ep.Device.PeerName); err != nil {
 		return err
 	}
-	// Net Namespace 中默认本地地址 127 的勺。”网卡是关闭状态的
 	// 启动它以保证容器访问自己的请求
 	if err = setInterfaceUP("lo"); err != nil {
 		return err
@@ -340,9 +329,9 @@ func configEndpointIpAddressAndRoute(ep *Endpoint, info *container.Info) error {
 	// 设置容器内的外部请求都通过容器内的Veth端点访问
 	// 0.0.0.0/0的网段，表示所有的IP地址段
 	_, cidr, _ := net.ParseCIDR("0.0.0.0/0")
+
 	// 构建要添加的路由数据，包括网络设备、网关IP及目的网段
 	// 相当于route add -net 0.0.0.0/0 gw (Bridge网桥地址) dev （容器内的Veth端点设备)
-
 	defaultRoute := &netlink.Route{
 		LinkIndex: peerLink.Attrs().Index,
 		Gw:        ep.Network.IPRange.IP,
@@ -353,7 +342,6 @@ func configEndpointIpAddressAndRoute(ep *Endpoint, info *container.Info) error {
 	if err = netlink.RouteAdd(defaultRoute); err != nil {
 		return err
 	}
-
 	return nil
 }
 func addPortMapping(ep *Endpoint) error {

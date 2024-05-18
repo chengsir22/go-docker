@@ -70,8 +70,7 @@ func (d *BridgeNetworkDriver) Connect(networkName string, endpoint *Endpoint) er
 	la.Name = endpoint.ID[:5]
 	// 通过设置 Veth 接口 master 属性，设置这个Veth的一端挂载到网络对应的 Linux Bridge
 	la.MasterIndex = br.Attrs().Index
-	// 创建 Veth 对象，通过 PeerNarne 配置 Veth 另外 端的接口名
-	// 配置 Veth 另外 端的名字 cif {endpoint ID 的前 位｝
+	// 创建 Veth 对象，通过 PeerNarne 配置 Veth 另一端的接口名
 	endpoint.Device = netlink.Veth{
 		LinkAttrs: la,
 		PeerName:  "cif-" + endpoint.ID[:5],
@@ -121,9 +120,8 @@ func (d *BridgeNetworkDriver) Disconnect(endpointID string) error {
 	return nil
 }
 
-// initBridge 初始化Linux Bridge
 /*
-Linux Bridge 初始化流程如下：
+initBridge 初始化Linux Bridge
 * 1）创建 Bridge 虚拟设备
 * 2）设置 Bridge 设备地址和路由
 * 3）启动 Bridge 设备
@@ -131,14 +129,12 @@ Linux Bridge 初始化流程如下：
 */
 func (d *BridgeNetworkDriver) initBridge(n *Network) error {
 	bridgeName := n.Name
-	// 1）创建 Bridge 虚拟设备
+	// 1）创建 Bridge 虚拟设备 ip link add xxxx
 	if err := createBridgeInterface(bridgeName); err != nil {
 		return errors.Wrapf(err, "Failed to create bridge %s", bridgeName)
 	}
-
 	// 2）设置 Bridge 设备地址和路由
 	gatewayIP := *n.IPRange
-	gatewayIP.IP = n.IPRange.IP
 
 	if err := setInterfaceIP(bridgeName, gatewayIP.String()); err != nil {
 		return errors.Wrapf(err, "Error set bridge ip: %s on bridge: %s", gatewayIP.String(), bridgeName)
@@ -152,7 +148,6 @@ func (d *BridgeNetworkDriver) initBridge(n *Network) error {
 	if err := setupIPTables(bridgeName, n.IPRange); err != nil {
 		return errors.Wrapf(err, "Failed to set up iptables for %s", bridgeName)
 	}
-
 	return nil
 }
 
@@ -170,21 +165,17 @@ func (d *BridgeNetworkDriver) deleteBridge(n *Network) error {
 	if err = netlink.LinkDel(l); err != nil {
 		return fmt.Errorf("failed to remove bridge interface %s delete: %v", bridgeName, err)
 	}
-
 	return nil
 }
 
-// createBridgeInterface 创建Bridge设备
-// ip link add xxxx
+// createBridgeInterface 创建Bridge设备  ip link add xxxx
 func createBridgeInterface(bridgeName string) error {
 	// 先检查是否己经存在了这个同名的Bridge设备
 	_, err := net.InterfaceByName(bridgeName)
-	// 如果已经存在或者报错则返回创建错
-	// errNoSuchInterface这个错误未导出也没提供判断方法，只能判断字符串了。。
+	// 如果已存在或报错返回创建失败
 	if err == nil || !strings.Contains(err.Error(), "no such network interface") {
 		return err
 	}
-
 	// create *netlink.Bridge object
 	la := netlink.NewLinkAttrs()
 	la.Name = bridgeName
@@ -198,10 +189,9 @@ func createBridgeInterface(bridgeName string) error {
 	return nil
 }
 
-// Set the IP addr of a netlink interface
-// ip addr add xxx命令
+// Set the IP addr of a netlink interface  ip addr add 172.18.0.1/24 dev br0
 func setInterfaceIP(name string, rawIP string) error {
-	retries := 2
+	retries := 5
 	var iface netlink.Link
 	var err error
 	for i := 0; i < retries; i++ {
@@ -222,9 +212,6 @@ func setInterfaceIP(name string, rawIP string) error {
 	if err != nil {
 		return err
 	}
-	// 通过  netlink.AddrAdd给网络接口配置地址，相当于ip addr add xxx命令
-	// 同时如果配置了地址所在网段的信息，例如 192.168.0.0/24
-	// 还会配置路由表 192.168.0.0/24 转发到这 testbridge 的网络接口上
 	addr := &netlink.Addr{IPNet: ipNet}
 	return netlink.AddrAdd(iface, addr)
 }
@@ -263,8 +250,7 @@ func deleteIPRoute(name string, rawIP string) error {
 	return nil
 }
 
-// setInterfaceUP 启动Bridge设备
-// 等价于 ip link set xxx up 命令
+// setInterfaceUP 启动Bridge设备  ip link set xxx up
 func setInterfaceUP(interfaceName string) error {
 	link, err := netlink.LinkByName(interfaceName)
 	if err != nil {
@@ -278,8 +264,6 @@ func setInterfaceUP(interfaceName string) error {
 }
 
 // setupIPTables 设置 iptables 对应 bridge MASQUERADE 规则
-// iptables -t nat -A POSTROUTING -s 172.18.0.0/24 -o eth0 -j MASQUERADE
-// iptables -t nat -A POSTROUTING -s {subnet} -o {deviceName} -j MASQUERADE
 func setupIPTables(bridgeName string, subnet *net.IPNet) error {
 	return configIPTables(bridgeName, subnet, false)
 }

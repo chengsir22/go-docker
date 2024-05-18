@@ -1,6 +1,7 @@
 package main
 
 import (
+	"fmt"
 	log "github.com/sirupsen/logrus"
 	"go-docker/cgroups"
 	"go-docker/cgroups/resource"
@@ -29,13 +30,12 @@ func Run(tty bool, comArray, envSlice []string, res *resource.ResourceConfig, vo
 	}
 
 	// 创建cgroup manager, 并通过调用set和apply设置资源限制并使限制在容器上生效
-	cgroupManager := cgroups.NewCgroupManager("docker-cgroup-manager")
-	defer cgroupManager.Destroy()
+	cgroupManager := cgroups.NewCgroupManager("docker-cgroup-manager/" + containerId)
 	_ = cgroupManager.Set(res)
 	_ = cgroupManager.Apply(parent.Process.Pid)
 
 	var containerIP string
-	// 如果指定了网络信息则进行配置
+	// 如果指定了网络信息则进行配置 go-docker run -it -p 80:80 --net testbridgenet xxxx
 	if net != "" {
 		// config container network
 		containerInfo := &container.Info{
@@ -65,8 +65,12 @@ func Run(tty bool, comArray, envSlice []string, res *resource.ResourceConfig, vo
 	// 如果是tty，那么父进程等待，就是前台运行，否则就是跳过，实现后台运行
 	if tty {
 		_ = parent.Wait()
+		defer cgroupManager.Destroy()
 		container.DeleteWorkSpace(containerId, volume)
-		container.DeleteContainerInfo(containerId)
+		err := container.DeleteContainerInfo(containerId)
+		if err != nil {
+			fmt.Println("delete container info error %v", err)
+		}
 		if net != "" {
 			network.Disconnect(net, containerInfo)
 		}

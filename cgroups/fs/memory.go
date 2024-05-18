@@ -23,12 +23,12 @@ func (s *MemorySubSystem) Set(cgroupPath string, res *resource.ResourceConfig) e
 	if res.MemoryLimit == "" {
 		return nil
 	}
-	subsysCgroupPath, err := getCgroupPath(s.Name(), cgroupPath, true)
+	subCgroupPath, err := getCgroupPath(s.Name(), cgroupPath, true)
 	if err != nil {
 		return err
 	}
 	// 设置这个cgroup的内存限制，即将限制写入到cgroup对应目录的memory.limit_in_bytes 文件中。
-	if err := os.WriteFile(path.Join(subsysCgroupPath, "memory.limit_in_bytes"), []byte(res.MemoryLimit), constant.Perm0644); err != nil {
+	if err := os.WriteFile(path.Join(subCgroupPath, "memory.limit_in_bytes"), []byte(res.MemoryLimit), 0644); err != nil {
 		return fmt.Errorf("set cgroup memory fail %v", err)
 	}
 	return nil
@@ -36,11 +36,11 @@ func (s *MemorySubSystem) Set(cgroupPath string, res *resource.ResourceConfig) e
 
 // Apply 将pid加入到cgroupPath对应的cgroup中
 func (s *MemorySubSystem) Apply(cgroupPath string, pid int) error {
-	subsysCgroupPath, err := getCgroupPath(s.Name(), cgroupPath, true)
+	subCgroupPath, err := getCgroupPath(s.Name(), cgroupPath, true)
 	if err != nil {
 		return errors.Wrapf(err, "get cgroup %s", cgroupPath)
 	}
-	if err := os.WriteFile(path.Join(subsysCgroupPath, "tasks"), []byte(strconv.Itoa(pid)), constant.Perm0644); err != nil {
+	if err := os.WriteFile(path.Join(subCgroupPath, "tasks"), []byte(strconv.Itoa(pid)), 0644); err != nil {
 		return fmt.Errorf("set cgroup proc fail %v", err)
 	}
 	return nil
@@ -48,9 +48,9 @@ func (s *MemorySubSystem) Apply(cgroupPath string, pid int) error {
 
 // Remove 删除cgroupPath对应的cgroup
 func (s *MemorySubSystem) Remove(cgroupPath string) error {
-	subsysCgroupPath, err := getCgroupPath(s.Name(), cgroupPath, false)
+	subCgroupPath, err := getCgroupPath(s.Name(), cgroupPath, false)
 	if err != nil {
 		return err
 	}
-	return os.RemoveAll(subsysCgroupPath)
+	return os.RemoveAll(subCgroupPath)
 }

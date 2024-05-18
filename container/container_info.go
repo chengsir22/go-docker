@@ -13,7 +13,6 @@ import (
 )
 
 func RecordContainerInfo(containerPID int, commandArray []string, containerName, containerId, volume, networkName, ip string, portMapping []string) (*Info, error) {
-	// 如果未指定容器名，则使用随机生成的containerID
 	if containerName == "" {
 		containerName = containerId
 	}
@@ -23,7 +22,7 @@ func RecordContainerInfo(containerPID int, commandArray []string, containerName,
 		Id:          containerId,
 		Name:        containerName,
 		Command:     command,
-		CreatedTime: time.Now().Format("2006-01-02 15:04:05"),
+		CreatedTime: time.Now().Format("2024-01-01 18:01:01"),
 		Status:      RUNNING,
 		Volume:      volume,
 		NetworkName: networkName,
@@ -38,7 +37,7 @@ func RecordContainerInfo(containerPID int, commandArray []string, containerName,
 	jsonStr := string(jsonBytes)
 	// 拼接出存储容器信息文件的路径，如果目录不存在则级联创建
 	dirPath := fmt.Sprintf(InfoLocFormat, containerId)
-	if err = os.MkdirAll(dirPath, constant.Perm0622); err != nil {
+	if err = os.MkdirAll(dirPath, 0622); err != nil {
 		return containerInfo, errors.WithMessagef(err, "mkdir %s failed", dirPath)
 	}
 	// 将容器信息写入文件

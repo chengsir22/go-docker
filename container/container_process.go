@@ -14,11 +14,11 @@ const (
 	RUNNING       = "running"
 	STOP          = "stopped"
 	Exit          = "exited"
-	InfoLoc       = "/var/lib/mydocker/containers/"
+	InfoLoc       = "/var/lib/go-docker/containers/"
 	InfoLocFormat = InfoLoc + "%s/"
 	ConfigName    = "config.json"
 	IDLength      = 10
-	LogFile       = "%s-json.log"
+	LogFile       = "%s.log"
 )
 
 type Info struct {

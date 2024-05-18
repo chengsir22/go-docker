@@ -3,6 +3,7 @@ package main
 import (
 	"encoding/json"
 	"fmt"
+	"go-docker/cgroups"
 	"go-docker/network"
 	"os"
 	"path"
@@ -44,7 +45,7 @@ func stopContainer(containerId string) {
 	// 4.重新写回存储容器信息的文件
 	dirPath := fmt.Sprintf(container.InfoLocFormat, containerId)
 	configFilePath := path.Join(dirPath, container.ConfigName)
-	if err = os.WriteFile(configFilePath, newContentBytes, constant.Perm0622); err != nil {
+	if err = os.WriteFile(configFilePath, newContentBytes, 0622); err != nil {
 		log.Errorf("Write file %s error:%v", configFilePath, err)
 	}
 }
@@ -78,6 +79,12 @@ func removeContainer(containerId string, force bool) {
 			return
 		}
 		container.DeleteWorkSpace(containerId, containerInfo.Volume)
+		cgroupManager := cgroups.NewCgroupManager("docker-cgroup-manager/" + containerId)
+		err := cgroupManager.Destroy()
+		if err != nil {
+			log.Errorf("Remove container [%s]'s cgroup failed, detail: %v", containerId, err)
+			return
+		}
 		if containerInfo.NetworkName != "" { // 清理网络资源
 			if err = network.Disconnect(containerInfo.NetworkName, containerInfo); err != nil {
 				log.Errorf("Remove container [%s]'s config failed, detail: %v", containerId, err)

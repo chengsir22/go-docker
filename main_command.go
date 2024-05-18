@@ -41,14 +41,13 @@ var runCommand = cli.Command{
 			Name:  "d",
 			Usage: "detach container,run background",
 		},
-		// 提供run后面的-name指定容器名字参数
 		cli.StringFlag{
 			Name:  "name",
-			Usage: "container name，e.g.: -name mycontainer",
+			Usage: "container name，e.g.: -name containerName",
 		},
 		cli.StringSliceFlag{
 			Name:  "e",
-			Usage: "set environment,e.g. -e name=mydocker",
+			Usage: "set environment,e.g. -e env=uat",
 		},
 		cli.StringFlag{
 			Name:  "net",
@@ -138,22 +137,22 @@ var logCommand = cli.Command{
 		if len(context.Args()) < 1 {
 			return fmt.Errorf("please input your container id")
 		}
-		containerName := context.Args().Get(0)
-		logContainer(containerName)
+		containerID := context.Args().Get(0)
+		logContainer(containerID)
 		return nil
 	},
 }
 
 var execCommand = cli.Command{
 	Name:  "exec",
-	Usage: "exec a command into container,mydocker exec 123456789 /bin/sh",
+	Usage: "exec a command into container,go-docker exec 123456789 /bin/sh",
 	Action: func(context *cli.Context) error {
 		// 如果环境变量存在，说明C代码已经运行过了，即setns系统调用已经执行了，这里就直接返回，避免重复执行
 		if os.Getenv(EnvExecPid) != "" {
 			log.Infof("pid callback pid %v", os.Getgid())
 			return nil
 		}
-		// 格式：mydocker exec 容器名字 命令，因此至少会有两个参数
+		// 格式：go-docker exec 容器名字 命令，因此至少会有两个参数
 		if len(context.Args()) < 2 {
 			return fmt.Errorf("missing container name or command")
 		}
@@ -167,9 +166,9 @@ var execCommand = cli.Command{
 
 var stopCommand = cli.Command{
 	Name:  "stop",
-	Usage: "stop a container,e.g. mydocker stop 1234567890",
+	Usage: "stop a container,e.g. go-docker stop 1234567890",
 	Action: func(context *cli.Context) error {
-		// 期望输入是：mydocker stop 容器Id，如果没有指定参数直接打印错误
+		// 期望输入是：docker stop 容器Id，如果没有指定参数直接打印错误
 		if len(context.Args()) < 1 {
 			return fmt.Errorf("missing container id")
 		}
@@ -181,7 +180,7 @@ var stopCommand = cli.Command{
 
 var removeCommand = cli.Command{
 	Name:  "rm",
-	Usage: "remove unused containers,e.g. mydocker rm 1234567890",
+	Usage: "remove unused containers,e.g. go-docker rm 1234567890",
 	Flags: []cli.Flag{
 		cli.BoolFlag{
 			Name:  "f", // 强制删除
@@ -204,11 +203,11 @@ var networkCommand = cli.Command{
 	Subcommands: []cli.Command{
 		{
 			Name:  "create",
-			Usage: "create a container network",
+			Usage: "create a container network,e.g. go-docker network create --subset 192.168.0.0/24 --driver bridge testbridgenet",
 			Flags: []cli.Flag{
 				cli.StringFlag{
 					Name:  "driver",
-					Usage: "network driver",
+					Usage: "driver bridge",
 				},
 				cli.StringFlag{
 					Name:  "subnet",

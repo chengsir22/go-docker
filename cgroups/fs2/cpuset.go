@@ -22,7 +22,7 @@ func (s *CpusetSubSystem) Set(cgroupPath string, res *resource.ResourceConfig) e
 	if err != nil {
 		return err
 	}
-	if err := os.WriteFile(path.Join(subCgroupPath, "cpuset.cpus"), []byte(res.CpuSet), constant.Perm0644); err != nil {
+	if err := os.WriteFile(path.Join(subCgroupPath, "cpuset.cpus"), []byte(res.CpuSet), 0644); err != nil {
 		return fmt.Errorf("set cgroup cpuset fail %v", err)
 	}
 	return nil
