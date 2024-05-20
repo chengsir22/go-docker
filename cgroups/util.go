@@ -13,7 +13,7 @@ const (
 
 var (
 	isUnifiedOnce sync.Once
-	isUnified     bool
+	isCgroupV2    bool
 )
 
 // IsCgroup2UnifiedMode returns whether we are running in cgroup v2 unified mode.
@@ -22,11 +22,10 @@ func IsCgroup2UnifiedMode() bool {
 		var st unix.Statfs_t
 		err := unix.Statfs(unifiedMountpoint, &st)
 		if err != nil && os.IsNotExist(err) {
-			// For rootless containers, sweep it under the rug.
-			isUnified = false
+			isCgroupV2 = false
 			return
 		}
-		isUnified = st.Type == unix.CGROUP2_SUPER_MAGIC
+		isCgroupV2 = st.Type == unix.CGROUP2_SUPER_MAGIC
 	})
-	return isUnified
+	return isCgroupV2
 }
