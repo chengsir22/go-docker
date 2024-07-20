@@ -39,7 +39,7 @@ var runCommand = cli.Command{
 		},
 		cli.BoolFlag{
 			Name:  "d",
-			Usage: "detach container,run background",
+			Usage: "detach container, run background",
 		},
 		cli.StringFlag{
 			Name:  "name",
